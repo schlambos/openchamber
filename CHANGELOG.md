@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Usage: quota/usage tracking now fetches real data for the full set of mystatus providers (AtlasCloud, BytePlus, StepFun, QwenCloud, LongCat, Mistral, OpenCode Go+Zen, Poe, Ollama Cloud, xAI/Grok, plus the OpenAI/Anthropic/Google/Copilot/Z.AI/MiniMax/NanoGPT OAuth providers), replacing the previous mock and placeholder implementations. Manual-auth providers store credentials in a redacted credential registry with schema validation; OAuth providers resolve tokens from OpenCode auth.json. Multi-account providers and the rich card model (sub-accounts, headers/footers, per-window detail) are surfaced in the usage dashboard.
+- Settings: quota/usage credentials are now managed inline within each provider's detail panel under Settings → Providers, instead of a separate Credentials tab.
+
 ## [1.13.7] - 2026-06-28
 
 - Chat: with tool calls (such as Bash and Edit) shown expanded by default, scrolling no longer twitches, and slow scrolling no longer jumps past several messages.
