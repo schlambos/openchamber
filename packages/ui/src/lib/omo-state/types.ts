@@ -35,3 +35,8 @@ export interface OMOConfigResponse {
   config: OMOConfig | null;
   error?: string;
 }
+
+export interface OMOAssignmentPatch {
+  agents?: Record<string, OMOModelAssignment>;
+  categories?: Record<string, OMOModelAssignment>;
+}

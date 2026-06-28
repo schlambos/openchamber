@@ -3,79 +3,29 @@ import { useI18n } from '@/lib/i18n';
 import { useOMOState } from '@/hooks/useOMOState';
 import { Icon } from '@/components/icon/Icon';
 import type { OMOModelAssignment } from '@/lib/omo-state/types';
+import { OMOAssignmentList, type OMOAssignmentScope, type OMORosterEntry } from './OMOAssignmentList';
 
-interface RosterEntry {
-  name: string;
-  assignment: OMOModelAssignment;
-}
-
-const toRoster = (record: Record<string, OMOModelAssignment> | undefined): RosterEntry[] => {
+const toRoster = (record: Record<string, OMOModelAssignment> | undefined): OMORosterEntry[] => {
   if (!record) return [];
   return Object.entries(record).map(([name, assignment]) => ({ name, assignment }));
 };
 
-const ModelRow: React.FC<{ entry: RosterEntry; isLast: boolean }> = ({ entry, isLast }) => {
-  const { name, assignment } = entry;
-  const fallbacks = assignment.fallback_models ?? [];
-  
-  const modelParts = assignment.model.split('/');
-  const prefix = modelParts.length > 1 ? modelParts[0] + '/' : '';
-  const modelName = modelParts.length > 1 ? modelParts.slice(1).join('/') : assignment.model;
-
-  return (
-    <div className={`py-3.5 ${!isLast ? 'border-b border-[var(--surface-subtle)]' : ''}`}>
-      <div className="flex flex-col gap-1.5 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-bold text-[var(--primary-base)] break-all">{name}</span>
-          {assignment.variant && (
-            <span className="rounded bg-[var(--primary-muted)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--primary-base)] shrink-0">
-              {assignment.variant}
-            </span>
-          )}
-        </div>
-        <div className="font-mono text-xs leading-tight break-all">
-          {prefix && <span className="text-[var(--surface-muted-foreground)] opacity-60">{prefix}</span>}
-          <span className="text-[var(--surface-muted-foreground)] opacity-90">{modelName}</span>
-        </div>
-      </div>
-      
-      {fallbacks.length > 0 && (
-        <details className="mt-2.5 text-xs group cursor-pointer">
-          <summary className="font-medium text-[var(--surface-muted-foreground)] hover:text-[var(--surface-foreground)] flex items-center gap-1 leading-none select-none list-none [&::-webkit-details-marker]:hidden">
-            <Icon name="arrow-right-s" className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
-            <span>{fallbacks.length} fallback{fallbacks.length > 1 ? 's' : ''}</span>
-          </summary>
-          <ul className="mt-2 mb-1 ml-[6px] space-y-2.5 border-l-2 border-[var(--surface-subtle)] pl-3">
-            {fallbacks.map((fb, i) => {
-              const fbParts = fb.model.split('/');
-              const fbPrefix = fbParts.length > 1 ? fbParts[0] + '/' : '';
-              const fbName = fbParts.length > 1 ? fbParts.slice(1).join('/') : fb.model;
-              return (
-                <li key={`${fb.model}-${i}`} className="font-mono text-[11px] leading-tight break-all">
-                  <div className="text-[var(--surface-muted-foreground)]">
-                    {fbPrefix && <span className="opacity-50">{fbPrefix}</span>}
-                    <span className="opacity-80">{fbName}</span>
-                  </div>
-                  {fb.variant && (
-                    <div className="mt-1.5">
-                      <span className="rounded bg-[var(--surface-subtle)] px-1 py-0.5 text-[9px] font-bold uppercase text-[var(--surface-muted-foreground)]">
-                        {fb.variant}
-                      </span>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      )}
-    </div>
-  );
-};
-
 export const OMOStatusPanel: React.FC = () => {
   const { t } = useI18n();
-  const { config, loading, error, installed } = useOMOState();
+  const { config, loading, error, installed, saving, saveAssignments } = useOMOState();
+
+  const handleSaveAssignment = React.useCallback(async (
+    scope: OMOAssignmentScope,
+    name: string,
+    assignment: OMOModelAssignment,
+  ) => {
+    if (scope === 'agents') {
+      await saveAssignments({ agents: { [name]: assignment } });
+      return;
+    }
+
+    await saveAssignments({ categories: { [name]: assignment } });
+  }, [saveAssignments]);
 
   if (loading && !config) {
     return (
@@ -135,6 +85,10 @@ export const OMOStatusPanel: React.FC = () => {
       </div>
 
       <div className="flex-1 space-y-6 p-4">
+        <div className="rounded-xl border border-[var(--status-info-border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs leading-relaxed text-[var(--surface-foreground)]">
+          {t('omoStatus.editor.restartNotice')}
+        </div>
+
         <section className="flex flex-col gap-3">
           <div className="flex items-center gap-2 px-1">
             <h3 className="text-[11px] font-bold uppercase tracking-widest text-[var(--surface-muted-foreground)]">
@@ -145,11 +99,7 @@ export const OMOStatusPanel: React.FC = () => {
             </span>
           </div>
           {agents.length > 0 ? (
-            <div className="rounded-xl border border-[var(--interactive-border)] bg-[var(--surface-elevated)] px-4 shadow-sm">
-              {agents.map((entry, idx) => (
-                <ModelRow key={entry.name} entry={entry} isLast={idx === agents.length - 1} />
-              ))}
-            </div>
+            <OMOAssignmentList entries={agents} saving={saving} scope="agents" onSaveAssignment={handleSaveAssignment} />
           ) : (
             <div className="rounded-xl border border-[var(--interactive-border)] bg-[var(--surface-elevated)] p-4 text-sm text-[var(--surface-muted-foreground)] shadow-sm">
               {t('omoStatus.agents.none')}
@@ -167,11 +117,7 @@ export const OMOStatusPanel: React.FC = () => {
             </span>
           </div>
           {categories.length > 0 ? (
-            <div className="rounded-xl border border-[var(--interactive-border)] bg-[var(--surface-elevated)] px-4 shadow-sm">
-              {categories.map((entry, idx) => (
-                <ModelRow key={entry.name} entry={entry} isLast={idx === categories.length - 1} />
-              ))}
-            </div>
+            <OMOAssignmentList entries={categories} saving={saving} scope="categories" onSaveAssignment={handleSaveAssignment} />
           ) : (
             <div className="rounded-xl border border-[var(--interactive-border)] bg-[var(--surface-elevated)] p-4 text-sm text-[var(--surface-muted-foreground)] shadow-sm">
               {t('omoStatus.categories.none')}
